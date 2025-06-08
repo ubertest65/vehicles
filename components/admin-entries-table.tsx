@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Eye, Download, FileText, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
+import { Eye, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 
 interface EntryWithDetails {
   id: number
@@ -159,92 +159,6 @@ export default function AdminEntriesTable({ filters }: AdminEntriesTableProps) {
     setCurrentPage(1) // Reset to first page when sorting
   }
 
-  const exportToCSV = () => {
-    const exportData = entries.map((entry) => ({
-      Driver: `${entry.user?.first_name} ${entry.user?.last_name}`,
-      Username: entry.user?.username,
-      Vehicle: `${entry.vehicle.license_plate} - ${entry.vehicle.model}`,
-      "Date & Time": formatDateTime(entry.created_at),
-      Mileage: entry.mileage,
-      Notes: entry.notes || "",
-      Status: entry.user?.status || "active",
-    }))
-
-    const headers = Object.keys(exportData[0] || {})
-    const csvContent = [
-      headers.join(","),
-      ...exportData.map((row) => headers.map((header) => `"${row[header as keyof typeof row] || ""}"`).join(",")),
-    ].join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `vehicle-entries-${new Date().toISOString().split("T")[0]}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
-
-  const exportToText = () => {
-    const exportContent = entries
-      .map((entry) => {
-        return [
-          `Driver: ${entry.user?.first_name} ${entry.user?.last_name}`,
-          `Username: ${entry.user?.username}`,
-          `Vehicle: ${entry.vehicle.license_plate} - ${entry.vehicle.model}`,
-          `Date & Time: ${formatDateTime(entry.created_at)}`,
-          `Mileage: ${entry.mileage} km`,
-          `Notes: ${entry.notes || "No notes"}`,
-          `Status: ${entry.user?.status || "active"}`,
-          "---",
-        ].join("\n")
-      })
-      .join("\n\n")
-
-    const fullContent = `Vehicle Entries Report\nGenerated: ${new Date().toLocaleString()}\n\n${exportContent}`
-
-    const blob = new Blob([fullContent], { type: "text/plain;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `vehicle-entries-${new Date().toISOString().split("T")[0]}.txt`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
-
-  const exportSingleEntryToText = (entry: EntryWithDetails) => {
-    const content = [
-      "Vehicle Entry Details",
-      "===================",
-      "",
-      `Driver: ${entry.user?.first_name} ${entry.user?.last_name}`,
-      `Username: ${entry.user?.username}`,
-      `Vehicle: ${entry.vehicle.license_plate} - ${entry.vehicle.model}`,
-      `Date & Time: ${formatDateTime(entry.created_at)}`,
-      `Mileage: ${entry.mileage} km`,
-      `Notes: ${entry.notes || "No notes"}`,
-      "",
-      "Photos:",
-      ...entry.photos.map((photo) => `- ${photo.photo_type}: ${photo.image_url}`),
-      "",
-      `Generated: ${new Date().toLocaleString()}`,
-    ].join("\n")
-
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `vehicle-entry-${entry.id}-${new Date().toISOString().split("T")[0]}.txt`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
-
   const totalPages = Math.ceil(totalEntries / itemsPerPage)
 
   if (loading) {
@@ -285,17 +199,6 @@ export default function AdminEntriesTable({ filters }: AdminEntriesTableProps) {
                   <SelectItem value="100">100 per page</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={exportToCSV} size="sm">
-                <FileText className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-              <Button variant="outline" onClick={exportToText} size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export Text
-              </Button>
             </div>
           </div>
 
@@ -357,17 +260,7 @@ export default function AdminEntriesTable({ filters }: AdminEntriesTableProps) {
                         </DialogTrigger>
                         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                           <DialogHeader>
-                            <DialogTitle className="flex justify-between items-center">
-                              Vehicle Entry Details
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => selectedEntry && exportSingleEntryToText(selectedEntry)}
-                              >
-                                <Download className="h-4 w-4 mr-2" />
-                                Export Text
-                              </Button>
-                            </DialogTitle>
+                            <DialogTitle>Vehicle Entry Details</DialogTitle>
                           </DialogHeader>
                           {selectedEntry && (
                             <div className="space-y-4">
