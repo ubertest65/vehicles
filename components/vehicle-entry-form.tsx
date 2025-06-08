@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
-import { Camera, Upload, Loader2 } from "lucide-react"
+import { Camera, Upload, Loader2, X } from "lucide-react"
 
 interface Vehicle {
   id: number
@@ -57,6 +57,13 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
       // Create preview URL
       const url = URL.createObjectURL(file)
       setPhotoPreview((prev) => ({ ...prev, [type]: url }))
+    } else {
+      setPhotos((prev) => ({ ...prev, [type]: null }))
+      setPhotoPreview((prev) => {
+        const newPreviews = { ...prev }
+        delete newPreviews[type]
+        return newPreviews
+      })
     }
   }
 
@@ -66,19 +73,61 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
       setOptionalPhotos((prev) => [...prev, ...newFiles])
 
       // Create preview URLs for optional photos
-      newFiles.forEach((file) => {
+      newFiles.forEach((file, index) => {
         const url = URL.createObjectURL(file)
         setPhotoPreview((prev) => ({
           ...prev,
-          [`optional-${optionalPhotos.length + prev.optionalCount || 0}`]: url,
+          [`optional-${optionalPhotos.length + index}`]: url,
         }))
       })
-
-      setPhotoPreview((prev) => ({
-        ...prev,
-        optionalCount: (prev.optionalCount || 0) + newFiles.length,
-      }))
     }
+  }
+
+  const removeOptionalPhoto = (index: number) => {
+    setOptionalPhotos((prev) => prev.filter((_, i) => i !== index))
+
+    // Update previews
+    const newPreviews = { ...photoPreview }
+    delete newPreviews[`optional-${index}`]
+
+    // Reindex remaining optional photos
+    const remainingOptionalPreviews: Record<string, string> = {}
+    Object.entries(newPreviews).forEach(([key, value]) => {
+      if (key.startsWith("optional-")) {
+        const oldIndex = Number.parseInt(key.split("-")[1])
+        if (oldIndex > index) {
+          remainingOptionalPreviews[`optional-${oldIndex - 1}`] = value
+        } else if (oldIndex < index) {
+          remainingOptionalPreviews[key] = value
+        }
+      } else {
+        remainingOptionalPreviews[key] = value
+      }
+    })
+
+    setPhotoPreview(remainingOptionalPreviews)
+  }
+
+  const uploadPhoto = async (file: File, fileName: string): Promise<string> => {
+    console.log(`Uploading file: ${fileName}`)
+
+    const { data, error } = await supabase.storage.from("vehicle-photos").upload(fileName, file, {
+      cacheControl: "3600",
+      upsert: false,
+    })
+
+    if (error) {
+      console.error("Upload error:", error)
+      throw new Error(`Upload failed: ${error.message}`)
+    }
+
+    console.log("Upload successful:", data)
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage.from("vehicle-photos").getPublicUrl(fileName)
+
+    console.log("Public URL:", publicUrlData.publicUrl)
+    return publicUrlData.publicUrl
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,6 +157,8 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
     setLoading(true)
 
     try {
+      console.log("Creating vehicle entry...")
+
       // 1. Create vehicle entry
       const { data: entry, error: entryError } = await supabase
         .from("vehicle_entries")
@@ -115,59 +166,76 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
           user_id: userId,
           vehicle_id: Number.parseInt(vehicleId),
           mileage: Number.parseInt(mileage),
-          notes: notes,
+          notes: notes || null,
         })
         .select()
         .single()
 
-      if (entryError) throw new Error(entryError.message)
+      if (entryError) {
+        console.error("Entry error:", entryError)
+        throw new Error(`Failed to create entry: ${entryError.message}`)
+      }
+
+      console.log("Entry created:", entry)
 
       // 2. Upload required photos
       for (const [type, file] of Object.entries(photos)) {
         if (!file) continue
 
-        const fileExt = file.name.split(".").pop()
-        const fileName = `${userId}-${entry.id}-${type}-${Date.now()}.${fileExt}`
-        const filePath = `vehicle-photos/${fileName}`
+        try {
+          const fileExt = file.name.split(".").pop() || "jpg"
+          const fileName = `${userId}-${entry.id}-${type}-${Date.now()}.${fileExt}`
 
-        const { error: uploadError } = await supabase.storage.from("vehicle-photos").upload(filePath, file)
+          console.log(`Uploading ${type} photo...`)
+          const imageUrl = await uploadPhoto(file, fileName)
 
-        if (uploadError) throw new Error(`Error uploading ${type} photo: ${uploadError.message}`)
+          // Save photo record
+          const { error: photoError } = await supabase.from("photos").insert({
+            entry_id: entry.id,
+            image_url: imageUrl,
+            photo_type: type,
+          })
 
-        // Get public URL
-        const { data: publicUrl } = supabase.storage.from("vehicle-photos").getPublicUrl(filePath)
+          if (photoError) {
+            console.error(`Photo record error for ${type}:`, photoError)
+            throw new Error(`Failed to save ${type} photo record: ${photoError.message}`)
+          }
 
-        // Save photo record
-        const { error: photoError } = await supabase.from("photos").insert({
-          entry_id: entry.id,
-          image_url: publicUrl.publicUrl,
-          photo_type: type,
-        })
-
-        if (photoError) throw new Error(`Error saving ${type} photo record: ${photoError.message}`)
+          console.log(`${type} photo saved successfully`)
+        } catch (error) {
+          console.error(`Error with ${type} photo:`, error)
+          throw error
+        }
       }
 
       // 3. Upload optional photos
-      for (const file of optionalPhotos) {
-        const fileExt = file.name.split(".").pop()
-        const fileName = `${userId}-${entry.id}-optional-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`
-        const filePath = `vehicle-photos/${fileName}`
+      for (let i = 0; i < optionalPhotos.length; i++) {
+        const file = optionalPhotos[i]
 
-        const { error: uploadError } = await supabase.storage.from("vehicle-photos").upload(filePath, file)
+        try {
+          const fileExt = file.name.split(".").pop() || "jpg"
+          const fileName = `${userId}-${entry.id}-optional-${i}-${Date.now()}.${fileExt}`
 
-        if (uploadError) throw new Error(`Error uploading optional photo: ${uploadError.message}`)
+          console.log(`Uploading optional photo ${i + 1}...`)
+          const imageUrl = await uploadPhoto(file, fileName)
 
-        // Get public URL
-        const { data: publicUrl } = supabase.storage.from("vehicle-photos").getPublicUrl(filePath)
+          // Save photo record
+          const { error: photoError } = await supabase.from("photos").insert({
+            entry_id: entry.id,
+            image_url: imageUrl,
+            photo_type: "optional",
+          })
 
-        // Save photo record
-        const { error: photoError } = await supabase.from("photos").insert({
-          entry_id: entry.id,
-          image_url: publicUrl.publicUrl,
-          photo_type: "optional",
-        })
+          if (photoError) {
+            console.error(`Optional photo record error:`, photoError)
+            throw new Error(`Failed to save optional photo record: ${photoError.message}`)
+          }
 
-        if (photoError) throw new Error(`Error saving optional photo record: ${photoError.message}`)
+          console.log(`Optional photo ${i + 1} saved successfully`)
+        } catch (error) {
+          console.error(`Error with optional photo ${i + 1}:`, error)
+          throw error
+        }
       }
 
       toast({
@@ -191,6 +259,7 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
       // Refresh the page to update the history
       router.refresh()
     } catch (error) {
+      console.error("Submit error:", error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to save vehicle entry",
@@ -252,7 +321,7 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
                   <Label htmlFor={`photo-${type.id}`}>{type.label}</Label>
                   <div className="relative">
                     {photoPreview[type.id] ? (
-                      <div className="relative aspect-video w-full overflow-hidden rounded-md">
+                      <div className="relative aspect-video w-full overflow-hidden rounded-md border">
                         <img
                           src={photoPreview[type.id] || "/placeholder.svg"}
                           alt={`${type.label} preview`}
@@ -271,7 +340,7 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
                     ) : (
                       <label
                         htmlFor={`photo-${type.id}`}
-                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50"
+                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
                       >
                         <Camera className="w-8 h-8 mb-2 text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">Take Photo</span>
@@ -296,9 +365,9 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
             <Label>Optional Photos</Label>
             <div className="grid grid-cols-3 gap-2">
               {optionalPhotos.map((file, index) => (
-                <div key={index} className="relative aspect-square w-full overflow-hidden rounded-md">
+                <div key={index} className="relative aspect-square w-full overflow-hidden rounded-md border">
                   <img
-                    src={photoPreview[`optional-${index || "/placeholder.svg"}`]}
+                    src={photoPreview[`optional-${index || "/placeholder.svg"}`] || "/placeholder.svg"}
                     alt={`Optional photo ${index + 1}`}
                     className="object-cover w-full h-full"
                   />
@@ -307,19 +376,13 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
                     variant="destructive"
                     size="sm"
                     className="absolute top-1 right-1 h-6 w-6 p-0"
-                    onClick={() => {
-                      setOptionalPhotos((prev) => prev.filter((_, i) => i !== index))
-                      // Update previews
-                      const newPreviews = { ...photoPreview }
-                      delete newPreviews[`optional-${index}`]
-                      setPhotoPreview(newPreviews)
-                    }}
+                    onClick={() => removeOptionalPhoto(index)}
                   >
-                    &times;
+                    <X className="h-3 w-3" />
                   </Button>
                 </div>
               ))}
-              <label className="flex flex-col items-center justify-center aspect-square w-full border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50">
+              <label className="flex flex-col items-center justify-center aspect-square w-full border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
                 <Upload className="w-6 h-6 mb-1 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">Add Photo</span>
                 <input
