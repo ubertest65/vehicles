@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,7 @@ export default function LoginForm() {
   const [savedCredentials, setSavedCredentials] = useState<any>(null)
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClientComponentClient()
+  const supabase = createClient()
 
   useEffect(() => {
     // Check if biometric authentication is available
@@ -37,7 +37,13 @@ export default function LoginForm() {
     // Check for existing session
     const userSession = localStorage.getItem("user_session")
     if (userSession) {
-      router.push("/dashboard")
+      const userData = JSON.parse(userSession)
+      // Redirect based on role
+      if (userData.role_id === 1) {
+        router.push("/admin/dashboard")
+      } else {
+        router.push("/dashboard")
+      }
     }
   }, [router])
 
@@ -92,23 +98,29 @@ export default function LoginForm() {
 
       localStorage.setItem("user_session", JSON.stringify(userSession))
 
-      // Save credentials for biometric login (if user agrees)
-      if (biometricAvailable && !savedCredentials) {
+      // Save credentials for biometric login (if user agrees and not admin)
+      if (biometricAvailable && !savedCredentials && userData.role_id !== 1) {
         const saveCredentials = confirm("Would you like to save your login for faster access with Face ID/Touch ID?")
         if (saveCredentials) {
           localStorage.setItem("saved_credentials", JSON.stringify({ username, password }))
         }
       }
 
-      console.log("Session created, redirecting to dashboard")
+      console.log("Session created, redirecting based on role")
 
       toast({
         title: "Login Successful",
         description: `Welcome back, ${userData.username}!`,
       })
 
-      // Redirect to dashboard
-      router.push("/dashboard")
+      // Redirect based on user role
+      if (userData.role_id === 1) {
+        // Admin user - redirect to admin dashboard
+        router.push("/admin/dashboard")
+      } else {
+        // Regular driver - redirect to normal dashboard
+        router.push("/dashboard")
+      }
     } catch (error) {
       console.error("Login error:", error)
       toast({
