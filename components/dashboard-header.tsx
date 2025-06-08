@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Car, User, LogOut, Shield } from "lucide-react"
 
@@ -13,7 +13,7 @@ interface DashboardHeaderProps {
 
 export default function DashboardHeader({ username, isAdmin = false }: DashboardHeaderProps) {
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const supabase = createClient()
 
   const handleLogout = async () => {
     // Clear local storage
@@ -35,10 +35,8 @@ export default function DashboardHeader({ username, isAdmin = false }: Dashboard
         </div>
 
         <nav className="hidden md:flex items-center gap-6">
-          <Link href="/dashboard" className="text-sm font-medium hover:underline">
-            Dashboard
-          </Link>
-          {isAdmin && (
+          {isAdmin ? (
+            // Admin navigation
             <>
               <Link href="/admin/dashboard" className="text-sm font-medium hover:underline flex items-center gap-1">
                 <Shield className="h-4 w-4" />
@@ -48,6 +46,16 @@ export default function DashboardHeader({ username, isAdmin = false }: Dashboard
                 Manage Users
               </Link>
             </>
+          ) : (
+            // Driver navigation
+            <>
+              <Link href="/dashboard" className="text-sm font-medium hover:underline">
+                Dashboard
+              </Link>
+              <Link href="/history" className="text-sm font-medium hover:underline">
+                History
+              </Link>
+            </>
           )}
         </nav>
 
@@ -55,6 +63,7 @@ export default function DashboardHeader({ username, isAdmin = false }: Dashboard
           <div className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="text-sm font-medium">{username || "User"}</span>
+            {isAdmin && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Admin</span>}
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-2" />
