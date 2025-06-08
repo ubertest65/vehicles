@@ -1,0 +1,350 @@
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/components/ui/use-toast"
+import { Camera, Upload, Loader2 } from "lucide-react"
+
+interface Vehicle {
+  id: number
+  license_plate: string
+  model: string
+}
+
+interface VehicleEntryFormProps {
+  userId?: number
+  vehicles: Vehicle[]
+}
+
+const REQUIRED_PHOTO_TYPES = [
+  { id: "vorne_links", label: "Front Left" },
+  { id: "vorne_rechts", label: "Front Right" },
+  { id: "hinten_links", label: "Rear Left" },
+  { id: "hinten_rechts", label: "Rear Right" },
+]
+
+export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntryFormProps) {
+  const [vehicleId, setVehicleId] = useState<string>("")
+  const [mileage, setMileage] = useState<string>("")
+  const [notes, setNotes] = useState<string>("")
+  const [photos, setPhotos] = useState<Record<string, File | null>>({
+    vorne_links: null,
+    vorne_rechts: null,
+    hinten_links: null,
+    hinten_rechts: null,
+  })
+  const [optionalPhotos, setOptionalPhotos] = useState<File[]>([])
+  const [loading, setLoading] = useState(false)
+  const [photoPreview, setPhotoPreview] = useState<Record<string, string>>({})
+
+  const router = useRouter()
+  const { toast } = useToast()
+  const supabase = createClientComponentClient()
+
+  const handlePhotoChange = (type: string, file: File | null) => {
+    if (file) {
+      setPhotos((prev) => ({ ...prev, [type]: file }))
+
+      // Create preview URL
+      const url = URL.createObjectURL(file)
+      setPhotoPreview((prev) => ({ ...prev, [type]: url }))
+    }
+  }
+
+  const handleOptionalPhotoAdd = (files: FileList | null) => {
+    if (files) {
+      const newFiles = Array.from(files)
+      setOptionalPhotos((prev) => [...prev, ...newFiles])
+
+      // Create preview URLs for optional photos
+      newFiles.forEach((file) => {
+        const url = URL.createObjectURL(file)
+        setPhotoPreview((prev) => ({
+          ...prev,
+          [`optional-${optionalPhotos.length + prev.optionalCount || 0}`]: url,
+        }))
+      })
+
+      setPhotoPreview((prev) => ({
+        ...prev,
+        optionalCount: (prev.optionalCount || 0) + newFiles.length,
+      }))
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validate required fields
+    if (!vehicleId || !mileage) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a vehicle and enter the mileage",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate required photos
+    const missingPhotos = Object.entries(photos).filter(([_, file]) => !file)
+    if (missingPhotos.length > 0) {
+      toast({
+        title: "Missing Photos",
+        description: "Please take all four required photos",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      // 1. Create vehicle entry
+      const { data: entry, error: entryError } = await supabase
+        .from("vehicle_entries")
+        .insert({
+          user_id: userId,
+          vehicle_id: Number.parseInt(vehicleId),
+          mileage: Number.parseInt(mileage),
+          notes: notes,
+        })
+        .select()
+        .single()
+
+      if (entryError) throw new Error(entryError.message)
+
+      // 2. Upload required photos
+      for (const [type, file] of Object.entries(photos)) {
+        if (!file) continue
+
+        const fileExt = file.name.split(".").pop()
+        const fileName = `${userId}-${entry.id}-${type}-${Date.now()}.${fileExt}`
+        const filePath = `vehicle-photos/${fileName}`
+
+        const { error: uploadError } = await supabase.storage.from("vehicle-photos").upload(filePath, file)
+
+        if (uploadError) throw new Error(`Error uploading ${type} photo: ${uploadError.message}`)
+
+        // Get public URL
+        const { data: publicUrl } = supabase.storage.from("vehicle-photos").getPublicUrl(filePath)
+
+        // Save photo record
+        const { error: photoError } = await supabase.from("photos").insert({
+          entry_id: entry.id,
+          image_url: publicUrl.publicUrl,
+          photo_type: type,
+        })
+
+        if (photoError) throw new Error(`Error saving ${type} photo record: ${photoError.message}`)
+      }
+
+      // 3. Upload optional photos
+      for (const file of optionalPhotos) {
+        const fileExt = file.name.split(".").pop()
+        const fileName = `${userId}-${entry.id}-optional-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`
+        const filePath = `vehicle-photos/${fileName}`
+
+        const { error: uploadError } = await supabase.storage.from("vehicle-photos").upload(filePath, file)
+
+        if (uploadError) throw new Error(`Error uploading optional photo: ${uploadError.message}`)
+
+        // Get public URL
+        const { data: publicUrl } = supabase.storage.from("vehicle-photos").getPublicUrl(filePath)
+
+        // Save photo record
+        const { error: photoError } = await supabase.from("photos").insert({
+          entry_id: entry.id,
+          image_url: publicUrl.publicUrl,
+          photo_type: "optional",
+        })
+
+        if (photoError) throw new Error(`Error saving optional photo record: ${photoError.message}`)
+      }
+
+      toast({
+        title: "Entry Saved",
+        description: "Vehicle condition has been recorded successfully",
+      })
+
+      // Reset form
+      setVehicleId("")
+      setMileage("")
+      setNotes("")
+      setPhotos({
+        vorne_links: null,
+        vorne_rechts: null,
+        hinten_links: null,
+        hinten_rechts: null,
+      })
+      setOptionalPhotos([])
+      setPhotoPreview({})
+
+      // Refresh the page to update the history
+      router.refresh()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save vehicle entry",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="vehicle">Vehicle</Label>
+            <Select value={vehicleId} onValueChange={setVehicleId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a vehicle" />
+              </SelectTrigger>
+              <SelectContent>
+                {vehicles.map((vehicle) => (
+                  <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                    {vehicle.license_plate} - {vehicle.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mileage">Mileage (km)</Label>
+            <Input
+              id="mileage"
+              type="number"
+              min="0"
+              value={mileage}
+              onChange={(e) => setMileage(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Any damage or issues to report?"
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-4">
+            <Label>Required Photos</Label>
+            <div className="grid grid-cols-2 gap-4">
+              {REQUIRED_PHOTO_TYPES.map((type) => (
+                <div key={type.id} className="space-y-2">
+                  <Label htmlFor={`photo-${type.id}`}>{type.label}</Label>
+                  <div className="relative">
+                    {photoPreview[type.id] ? (
+                      <div className="relative aspect-video w-full overflow-hidden rounded-md">
+                        <img
+                          src={photoPreview[type.id] || "/placeholder.svg"}
+                          alt={`${type.label} preview`}
+                          className="object-cover w-full h-full"
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="absolute bottom-2 right-2"
+                          onClick={() => handlePhotoChange(type.id, null)}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                    ) : (
+                      <label
+                        htmlFor={`photo-${type.id}`}
+                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50"
+                      >
+                        <Camera className="w-8 h-8 mb-2 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Take Photo</span>
+                        <input
+                          id={`photo-${type.id}`}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => handlePhotoChange(type.id, e.target.files?.[0] || null)}
+                          required
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <Label>Optional Photos</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {optionalPhotos.map((file, index) => (
+                <div key={index} className="relative aspect-square w-full overflow-hidden rounded-md">
+                  <img
+                    src={photoPreview[`optional-${index || "/placeholder.svg"}`]}
+                    alt={`Optional photo ${index + 1}`}
+                    className="object-cover w-full h-full"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-1 right-1 h-6 w-6 p-0"
+                    onClick={() => {
+                      setOptionalPhotos((prev) => prev.filter((_, i) => i !== index))
+                      // Update previews
+                      const newPreviews = { ...photoPreview }
+                      delete newPreviews[`optional-${index}`]
+                      setPhotoPreview(newPreviews)
+                    }}
+                  >
+                    &times;
+                  </Button>
+                </div>
+              ))}
+              <label className="flex flex-col items-center justify-center aspect-square w-full border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50">
+                <Upload className="w-6 h-6 mb-1 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Add Photo</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleOptionalPhotoAdd(e.target.files)}
+                />
+              </label>
+            </div>
+          </div>
+
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Vehicle Entry"
+            )}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
