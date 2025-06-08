@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import DashboardHeader from "@/components/dashboard-header"
 import VehicleEntryForm from "@/components/vehicle-entry-form"
-import UserEntryHistory from "@/components/user-entry-history"
+import { Button } from "@/components/ui/button"
+import { History } from "lucide-react"
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
@@ -64,18 +65,19 @@ export default function Dashboard() {
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardHeader username={user.username} isAdmin={user.role_id === 1} />
-      <div className="container mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold mb-8">Vehicle Condition Tracker</h1>
+      <div className="container mx-auto py-8 px-4 max-w-2xl">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Vehicle Condition Tracker</h1>
+          <Button variant="outline" onClick={() => router.push("/history")} className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            View History
+          </Button>
+        </div>
 
-        <div className="grid gap-8 md:grid-cols-1 lg:grid-cols-2">
+        <div className="space-y-8">
           <div>
             <h2 className="text-2xl font-semibold mb-4">New Vehicle Entry</h2>
             <VehicleEntryForm userId={user.id} vehicles={vehicles} />
-          </div>
-
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Your Recent Entries</h2>
-            <UserEntryHistory userId={user.id} />
           </div>
         </div>
       </div>
