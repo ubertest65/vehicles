@@ -16,7 +16,12 @@ export default function DashboardHeader({ username, isAdmin = false }: Dashboard
   const supabase = createClientComponentClient()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    // Clear local storage
+    localStorage.removeItem("user_session")
+
+    // Optionally clear session from database
+    // await supabase.from('sessions').delete().eq('token', userToken)
+
     router.push("/")
     router.refresh()
   }
