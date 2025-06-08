@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { createServerClient } from "@/lib/supabase-server"
+import { createServerClient } from "@/lib/supabase"
 import LoginForm from "@/components/login-form"
 
 export default async function Home() {
