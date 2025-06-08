@@ -39,10 +39,15 @@ export default function DashboardHeader({ username, isAdmin = false }: Dashboard
             Dashboard
           </Link>
           {isAdmin && (
-            <Link href="/admin" className="text-sm font-medium hover:underline flex items-center gap-1">
-              <Shield className="h-4 w-4" />
-              Admin
-            </Link>
+            <>
+              <Link href="/admin/dashboard" className="text-sm font-medium hover:underline flex items-center gap-1">
+                <Shield className="h-4 w-4" />
+                Admin Dashboard
+              </Link>
+              <Link href="/admin/users" className="text-sm font-medium hover:underline">
+                Manage Users
+              </Link>
+            </>
           )}
         </nav>
 
