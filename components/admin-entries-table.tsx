@@ -11,8 +11,6 @@ import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Eye, Download, FileText, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
-import * as XLSX from "xlsx"
-import jsPDF from "jspdf"
 
 interface EntryWithDetails {
   id: number
@@ -161,7 +159,7 @@ export default function AdminEntriesTable({ filters }: AdminEntriesTableProps) {
     setCurrentPage(1) // Reset to first page when sorting
   }
 
-  const exportToExcel = () => {
+  const exportToCSV = () => {
     const exportData = entries.map((entry) => ({
       Driver: `${entry.user?.first_name} ${entry.user?.last_name}`,
       Username: entry.user?.username,
@@ -172,79 +170,79 @@ export default function AdminEntriesTable({ filters }: AdminEntriesTableProps) {
       Status: entry.user?.status || "active",
     }))
 
-    const ws = XLSX.utils.json_to_sheet(exportData)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, "Vehicle Entries")
-    XLSX.writeFile(wb, `vehicle-entries-${new Date().toISOString().split("T")[0]}.xlsx`)
+    const headers = Object.keys(exportData[0] || {})
+    const csvContent = [
+      headers.join(","),
+      ...exportData.map((row) => headers.map((header) => `"${row[header as keyof typeof row] || ""}"`).join(",")),
+    ].join("\n")
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `vehicle-entries-${new Date().toISOString().split("T")[0]}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
-  const exportToPDF = async () => {
-    const pdf = new jsPDF()
+  const exportToText = () => {
+    const exportContent = entries
+      .map((entry) => {
+        return [
+          `Driver: ${entry.user?.first_name} ${entry.user?.last_name}`,
+          `Username: ${entry.user?.username}`,
+          `Vehicle: ${entry.vehicle.license_plate} - ${entry.vehicle.model}`,
+          `Date & Time: ${formatDateTime(entry.created_at)}`,
+          `Mileage: ${entry.mileage} km`,
+          `Notes: ${entry.notes || "No notes"}`,
+          `Status: ${entry.user?.status || "active"}`,
+          "---",
+        ].join("\n")
+      })
+      .join("\n\n")
 
-    pdf.setFontSize(16)
-    pdf.text("Vehicle Entries Report", 20, 20)
+    const fullContent = `Vehicle Entries Report\nGenerated: ${new Date().toLocaleString()}\n\n${exportContent}`
 
-    pdf.setFontSize(10)
-    let yPosition = 40
-
-    for (const entry of entries) {
-      if (yPosition > 250) {
-        pdf.addPage()
-        yPosition = 20
-      }
-
-      pdf.text(`Driver: ${entry.user?.first_name} ${entry.user?.last_name}`, 20, yPosition)
-      pdf.text(`Vehicle: ${entry.vehicle.license_plate}`, 20, yPosition + 10)
-      pdf.text(`Date: ${formatDateTime(entry.created_at)}`, 20, yPosition + 20)
-      pdf.text(`Mileage: ${entry.mileage} km`, 20, yPosition + 30)
-
-      if (entry.notes) {
-        pdf.text(`Notes: ${entry.notes}`, 20, yPosition + 40)
-        yPosition += 60
-      } else {
-        yPosition += 50
-      }
-    }
-
-    pdf.save(`vehicle-entries-${new Date().toISOString().split("T")[0]}.pdf`)
+    const blob = new Blob([fullContent], { type: "text/plain;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `vehicle-entries-${new Date().toISOString().split("T")[0]}.txt`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
-  const exportSingleEntryToPDF = async (entry: EntryWithDetails) => {
-    const pdf = new jsPDF()
+  const exportSingleEntryToText = (entry: EntryWithDetails) => {
+    const content = [
+      "Vehicle Entry Details",
+      "===================",
+      "",
+      `Driver: ${entry.user?.first_name} ${entry.user?.last_name}`,
+      `Username: ${entry.user?.username}`,
+      `Vehicle: ${entry.vehicle.license_plate} - ${entry.vehicle.model}`,
+      `Date & Time: ${formatDateTime(entry.created_at)}`,
+      `Mileage: ${entry.mileage} km`,
+      `Notes: ${entry.notes || "No notes"}`,
+      "",
+      "Photos:",
+      ...entry.photos.map((photo) => `- ${photo.photo_type}: ${photo.image_url}`),
+      "",
+      `Generated: ${new Date().toLocaleString()}`,
+    ].join("\n")
 
-    pdf.setFontSize(16)
-    pdf.text("Vehicle Entry Details", 20, 20)
-
-    pdf.setFontSize(12)
-    pdf.text(`Driver: ${entry.user?.first_name} ${entry.user?.last_name}`, 20, 40)
-    pdf.text(`Vehicle: ${entry.vehicle.license_plate} - ${entry.vehicle.model}`, 20, 55)
-    pdf.text(`Date & Time: ${formatDateTime(entry.created_at)}`, 20, 70)
-    pdf.text(`Mileage: ${entry.mileage} km`, 20, 85)
-
-    if (entry.notes) {
-      pdf.text(`Notes: ${entry.notes}`, 20, 100)
-    }
-
-    // Add photos if available
-    let yPos = 120
-    const requiredPhotos = entry.photos.filter((p) => p.photo_type !== "optional")
-
-    if (requiredPhotos.length > 0) {
-      pdf.text("Required Photos:", 20, yPos)
-      yPos += 15
-
-      for (const photo of requiredPhotos) {
-        try {
-          // In a real implementation, you'd load and embed the actual images
-          pdf.text(`- ${photo.photo_type}: ${photo.image_url}`, 25, yPos)
-          yPos += 10
-        } catch (error) {
-          console.error("Error adding photo to PDF:", error)
-        }
-      }
-    }
-
-    pdf.save(`vehicle-entry-${entry.id}-${new Date().toISOString().split("T")[0]}.pdf`)
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `vehicle-entry-${entry.id}-${new Date().toISOString().split("T")[0]}.txt`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   const totalPages = Math.ceil(totalEntries / itemsPerPage)
@@ -290,13 +288,13 @@ export default function AdminEntriesTable({ filters }: AdminEntriesTableProps) {
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" onClick={exportToExcel} size="sm">
+              <Button variant="outline" onClick={exportToCSV} size="sm">
                 <FileText className="h-4 w-4 mr-2" />
-                Export Excel
+                Export CSV
               </Button>
-              <Button variant="outline" onClick={exportToPDF} size="sm">
+              <Button variant="outline" onClick={exportToText} size="sm">
                 <Download className="h-4 w-4 mr-2" />
-                Export PDF
+                Export Text
               </Button>
             </div>
           </div>
@@ -364,10 +362,10 @@ export default function AdminEntriesTable({ filters }: AdminEntriesTableProps) {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => selectedEntry && exportSingleEntryToPDF(selectedEntry)}
+                                onClick={() => selectedEntry && exportSingleEntryToText(selectedEntry)}
                               >
                                 <Download className="h-4 w-4 mr-2" />
-                                Export PDF
+                                Export Text
                               </Button>
                             </DialogTitle>
                           </DialogHeader>
