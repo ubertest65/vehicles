@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
 import AdminEntriesTable from "@/components/admin-entries-table"
 import AdminFilters from "@/components/admin-filters"
+import AdminVehicleList from "@/components/admin-vehicle-list"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Users, Plus } from "lucide-react"
 
 export default function AdminDashboard() {
@@ -79,10 +81,21 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-6">
-          <AdminFilters filters={filters} onFiltersChange={setFilters} />
-          <AdminEntriesTable filters={filters} />
-        </div>
+        <Tabs defaultValue="entries" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="entries">Vehicle Entries</TabsTrigger>
+            <TabsTrigger value="vehicles">Manage Vehicles</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="entries" className="space-y-6">
+            <AdminFilters filters={filters} onFiltersChange={setFilters} />
+            <AdminEntriesTable filters={filters} />
+          </TabsContent>
+
+          <TabsContent value="vehicles">
+            <AdminVehicleList />
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   )
