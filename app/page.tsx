@@ -1,8 +1,16 @@
+import { redirect } from "next/navigation"
+import { createServerClient } from "@/lib/supabase-server"
 import LoginForm from "@/components/login-form"
-import DebugSupabase from "@/components/debug-supabase"
 
 export default async function Home() {
-  // Remove the session check for now to debug
+  const supabase = createServerClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (session) {
+    redirect("/dashboard")
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
@@ -12,7 +20,6 @@ export default async function Home() {
           <p className="text-muted-foreground mt-2">Log in to track vehicle conditions</p>
         </div>
         <LoginForm />
-        <DebugSupabase />
       </div>
     </main>
   )
