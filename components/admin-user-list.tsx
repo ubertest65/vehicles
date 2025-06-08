@@ -1,9 +1,8 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@/lib/supabase"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,7 +43,7 @@ export default function AdminUserList() {
   const [submitting, setSubmitting] = useState(false)
 
   const { toast } = useToast()
-  const supabase = createClientComponentClient()
+  const supabase = createClient()
 
   useEffect(() => {
     fetchUsers()
@@ -102,14 +101,6 @@ export default function AdminUserList() {
 
       if (error) throw error
 
-      // Create Supabase Auth user
-      const { error: authError } = await supabase.auth.signUp({
-        email: `${formData.username}@example.com`,
-        password: formData.password,
-      })
-
-      if (authError) throw authError
-
       // Fetch the updated user with role info
       const { data: newUser, error: fetchError } = await supabase
         .from("users")
@@ -165,11 +156,6 @@ export default function AdminUserList() {
         .single()
 
       if (error) throw error
-
-      // Update Supabase Auth user if password changed
-      if (formData.password) {
-        // In a real app, you'd update the auth user's password here
-      }
 
       // Fetch the updated user with role info
       const { data: updatedUser, error: fetchError } = await supabase
