@@ -24,10 +24,10 @@ export default function LoginForm() {
     setLoading(true)
 
     try {
-      // First, get the user by username
+      // Check if user exists in our custom users table
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("id, password_hash")
+        .select("id, username, password_hash, role_id")
         .eq("username", username)
         .single()
 
@@ -35,40 +35,46 @@ export default function LoginForm() {
         throw new Error("Invalid username or password")
       }
 
-      // For a real app, you'd verify the password hash here
-      // This is simplified for the example
+      // Simple password check (in production, you'd use proper hashing)
       if (userData.password_hash !== password) {
         throw new Error("Invalid username or password")
       }
 
-      // Create a session
-      const { data: sessionData, error: sessionError } = await supabase
-        .from("sessions")
-        .insert({
-          user_id: userData.id,
-          token: crypto.randomUUID(),
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-        })
-        .select()
-        .single()
+      // Create a session token
+      const sessionToken = crypto.randomUUID()
 
-      if (sessionError) {
-        throw new Error("Failed to create session")
-      }
-
-      // Set session in auth
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: `${username}@example.com`, // Using username as email for Supabase Auth
-        password: password,
+      // Store session in database
+      const { error: sessionError } = await supabase.from("sessions").insert({
+        user_id: userData.id,
+        token: sessionToken,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
       })
 
-      if (signInError) {
-        throw new Error("Authentication failed")
+      if (sessionError) {
+        console.error("Session error:", sessionError)
       }
 
+      // Store user info in localStorage for client-side auth
+      localStorage.setItem(
+        "user_session",
+        JSON.stringify({
+          id: userData.id,
+          username: userData.username,
+          role_id: userData.role_id,
+          token: sessionToken,
+        }),
+      )
+
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${userData.username}!`,
+      })
+
+      // Redirect to dashboard
       router.push("/dashboard")
       router.refresh()
     } catch (error) {
+      console.error("Login error:", error)
       toast({
         title: "Login Failed",
         description: error instanceof Error ? error.message : "An error occurred during login",
