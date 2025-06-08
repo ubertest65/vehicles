@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@/lib/supabase"
 import DashboardHeader from "@/components/dashboard-header"
 import VehicleEntryForm from "@/components/vehicle-entry-form"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,7 @@ export default function Dashboard() {
   const [vehicles, setVehicles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const supabase = createClient()
 
   useEffect(() => {
     // Check for user session
@@ -28,6 +28,14 @@ export default function Dashboard() {
 
         const userData = JSON.parse(userSession)
         console.log("User session found:", userData)
+
+        // Redirect admin users to admin dashboard
+        if (userData.role_id === 1) {
+          console.log("Admin user detected, redirecting to admin dashboard")
+          router.push("/admin/dashboard")
+          return
+        }
+
         setUser(userData)
 
         // Fetch vehicles
@@ -64,7 +72,7 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <DashboardHeader username={user.username} isAdmin={user.role_id === 1} />
+      <DashboardHeader username={user.username} isAdmin={false} />
       <div className="container mx-auto py-8 px-4 max-w-2xl">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Vehicle Condition Tracker</h1>
