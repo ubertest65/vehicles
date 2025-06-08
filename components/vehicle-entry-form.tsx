@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
-import { Camera, Upload, Loader2, X } from "lucide-react"
+import { Camera, Upload, Loader2, X, CheckCircle } from "lucide-react"
 
 interface Vehicle {
   id: number
@@ -45,6 +45,7 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
   const [optionalPhotos, setOptionalPhotos] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<Record<string, string>>({})
+  const [showSuccess, setShowSuccess] = useState(false)
 
   const router = useRouter()
   const { toast } = useToast()
@@ -130,6 +131,20 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
     return publicUrlData.publicUrl
   }
 
+  const formatDateTime = (date: Date) => {
+    const day = date.getDate().toString().padStart(2, "0")
+    const month = (date.getMonth() + 1).toString().padStart(2, "0")
+    const year = date.getFullYear()
+    const hours = date.getHours().toString().padStart(2, "0")
+    const minutes = date.getMinutes().toString().padStart(2, "0")
+
+    return {
+      date: `${day}.${month}.${year}`,
+      time: `${hours}:${minutes}`,
+      timestamp: date.toISOString(),
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -159,7 +174,9 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
     try {
       console.log("Creating vehicle entry...")
 
-      // 1. Create vehicle entry
+      const currentDateTime = formatDateTime(new Date())
+
+      // 1. Create vehicle entry with formatted timestamp
       const { data: entry, error: entryError } = await supabase
         .from("vehicle_entries")
         .insert({
@@ -167,6 +184,7 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
           vehicle_id: Number.parseInt(vehicleId),
           mileage: Number.parseInt(mileage),
           notes: notes || null,
+          created_at: currentDateTime.timestamp,
         })
         .select()
         .single()
@@ -238,26 +256,32 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
         }
       }
 
+      // Show success message
+      setShowSuccess(true)
+
       toast({
-        title: "Entry Saved",
-        description: "Vehicle condition has been recorded successfully",
+        title: "Entry Saved Successfully!",
+        description: `Vehicle condition recorded on ${currentDateTime.date} at ${currentDateTime.time}`,
       })
 
-      // Reset form
-      setVehicleId("")
-      setMileage("")
-      setNotes("")
-      setPhotos({
-        vorne_links: null,
-        vorne_rechts: null,
-        hinten_links: null,
-        hinten_rechts: null,
-      })
-      setOptionalPhotos([])
-      setPhotoPreview({})
+      // Reset form after a short delay
+      setTimeout(() => {
+        setVehicleId("")
+        setMileage("")
+        setNotes("")
+        setPhotos({
+          vorne_links: null,
+          vorne_rechts: null,
+          hinten_links: null,
+          hinten_rechts: null,
+        })
+        setOptionalPhotos([])
+        setPhotoPreview({})
+        setShowSuccess(false)
 
-      // Refresh the page to update the history
-      router.refresh()
+        // Refresh the page
+        window.location.reload()
+      }, 2000)
     } catch (error) {
       console.error("Submit error:", error)
       toast({
@@ -270,12 +294,28 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
     }
   }
 
+  if (showSuccess) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Entry Saved Successfully!</h3>
+            <p className="text-muted-foreground">Reloading page...</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="vehicle">Vehicle</Label>
+            <Label htmlFor="vehicle" className="flex items-center gap-1">
+              Vehicle <span className="text-red-500">*</span>
+            </Label>
             <Select value={vehicleId} onValueChange={setVehicleId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a vehicle" />
@@ -291,7 +331,9 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mileage">Mileage (km)</Label>
+            <Label htmlFor="mileage" className="flex items-center gap-1">
+              Mileage (km) <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="mileage"
               type="number"
@@ -314,11 +356,15 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
           </div>
 
           <div className="space-y-4">
-            <Label>Required Photos</Label>
+            <Label className="flex items-center gap-1">
+              Required Photos <span className="text-red-500">*</span>
+            </Label>
             <div className="grid grid-cols-2 gap-4">
               {REQUIRED_PHOTO_TYPES.map((type) => (
                 <div key={type.id} className="space-y-2">
-                  <Label htmlFor={`photo-${type.id}`}>{type.label}</Label>
+                  <Label htmlFor={`photo-${type.id}`} className="flex items-center gap-1">
+                    {type.label} <span className="text-red-500">*</span>
+                  </Label>
                   <div className="relative">
                     {photoPreview[type.id] ? (
                       <div className="relative aspect-video w-full overflow-hidden rounded-md border">
@@ -340,7 +386,7 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
                     ) : (
                       <label
                         htmlFor={`photo-${type.id}`}
-                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
+                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-red-300 rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
                       >
                         <Camera className="w-8 h-8 mb-2 text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">Take Photo</span>
@@ -400,7 +446,7 @@ export default function VehicleEntryForm({ userId, vehicles = [] }: VehicleEntry
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                Saving Entry...
               </>
             ) : (
               "Save Vehicle Entry"
