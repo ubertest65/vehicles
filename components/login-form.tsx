@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
+import { Loader2 } from "lucide-react"
 
 export default function LoginForm() {
   const [username, setUsername] = useState("")
@@ -24,12 +25,16 @@ export default function LoginForm() {
     setLoading(true)
 
     try {
+      console.log("Attempting login for:", username)
+
       // Check if user exists in our custom users table
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("id, username, password_hash, role_id")
         .eq("username", username)
         .single()
+
+      console.log("User query result:", userData, userError)
 
       if (userError || !userData) {
         throw new Error("Invalid username or password")
@@ -39,6 +44,8 @@ export default function LoginForm() {
       if (userData.password_hash !== password) {
         throw new Error("Invalid username or password")
       }
+
+      console.log("Password verified, creating session")
 
       // Create a session token
       const sessionToken = crypto.randomUUID()
@@ -65,6 +72,8 @@ export default function LoginForm() {
         }),
       )
 
+      console.log("Session created, redirecting to dashboard")
+
       toast({
         title: "Login Successful",
         description: `Welcome back, ${userData.username}!`,
@@ -72,7 +81,6 @@ export default function LoginForm() {
 
       // Redirect to dashboard
       router.push("/dashboard")
-      router.refresh()
     } catch (error) {
       console.error("Login error:", error)
       toast({
@@ -110,7 +118,14 @@ export default function LoginForm() {
         </CardContent>
         <CardFooter>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Logging in...
+              </>
+            ) : (
+              "Login"
+            )}
           </Button>
         </CardFooter>
       </form>
