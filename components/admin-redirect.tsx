@@ -12,9 +12,9 @@ export default function AdminRedirect() {
       if (userSession) {
         try {
           const userData = JSON.parse(userSession)
-          if (userData.username === "admin") {
+          if (userData.role_id === 1) {
             console.log("Admin user detected on normal dashboard, redirecting...")
-            window.location.href = "/admin/dashboard" // Force hard redirect
+            router.replace("/admin/dashboard")
           }
         } catch (error) {
           console.error("Error parsing user session:", error)
@@ -24,6 +24,11 @@ export default function AdminRedirect() {
 
     // Check immediately
     checkAdminStatus()
+
+    // Also check when the component mounts
+    const interval = setInterval(checkAdminStatus, 1000)
+
+    return () => clearInterval(interval)
   }, [router])
 
   return null
