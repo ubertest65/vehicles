@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Car, User, LogOut, Shield } from "lucide-react"
 
@@ -13,14 +12,10 @@ interface DashboardHeaderProps {
 
 export default function DashboardHeader({ username, isAdmin = false }: DashboardHeaderProps) {
   const router = useRouter()
-  const supabase = createClient()
 
   const handleLogout = async () => {
     // Clear local storage
     localStorage.removeItem("user_session")
-
-    // Optionally clear session from database
-    // await supabase.from('sessions').delete().eq('token', userToken)
 
     router.push("/")
     router.refresh()
