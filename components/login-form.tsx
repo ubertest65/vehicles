@@ -38,8 +38,8 @@ export default function LoginForm() {
     const userSession = localStorage.getItem("user_session")
     if (userSession) {
       const userData = JSON.parse(userSession)
-      // Redirect based on username
-      if (userData.username === "admin") {
+      // Redirect based on role
+      if (userData.role_id === 1) {
         router.push("/admin/dashboard")
       } else {
         router.push("/dashboard")
@@ -99,27 +99,30 @@ export default function LoginForm() {
       localStorage.setItem("user_session", JSON.stringify(userSession))
 
       // Save credentials for biometric login (if user agrees and not admin)
-      if (biometricAvailable && !savedCredentials && userData.username !== "admin") {
+      if (biometricAvailable && !savedCredentials && userData.role_id !== 1) {
         const saveCredentials = confirm("Would you like to save your login for faster access with Face ID/Touch ID?")
         if (saveCredentials) {
           localStorage.setItem("saved_credentials", JSON.stringify({ username, password }))
         }
       }
 
+      console.log("Session created, redirecting based on role")
+
       toast({
         title: "Login Successful",
         description: `Welcome back, ${userData.username}!`,
       })
 
-      // Redirect based on username (SIMPLE CHECK)
-      if (userData.username === "admin") {
+      // Redirect based on user role
+      if (userData.role_id === 1) {
         // Admin user - redirect to admin dashboard
-        console.log("Admin user detected (username = admin), redirecting to admin dashboard")
-        window.location.href = "/admin/dashboard" // Force hard redirect
+        console.log("Admin user detected, redirecting to admin dashboard")
+        router.push("/admin/dashboard")
+        router.refresh() // Force a refresh to ensure the redirect works
       } else {
         // Regular driver - redirect to normal dashboard
         console.log("Driver user detected, redirecting to normal dashboard")
-        window.location.href = "/dashboard" // Force hard redirect
+        router.push("/dashboard")
       }
     } catch (error) {
       console.error("Login error:", error)
