@@ -2,13 +2,13 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use_toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Edit, Trash2, Loader2 } from "lucide-react"
 import { format } from "date-fns"
@@ -43,7 +43,7 @@ export default function AdminUserList() {
   const [submitting, setSubmitting] = useState(false)
 
   const { toast } = useToast()
-  const supabase = createClient()
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchUsers()
