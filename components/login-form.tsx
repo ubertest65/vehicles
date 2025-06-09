@@ -116,9 +116,12 @@ export default function LoginForm() {
       // Redirect based on user role
       if (userData.role_id === 1) {
         // Admin user - redirect to admin dashboard
+        console.log("Admin user detected, redirecting to admin dashboard")
         router.push("/admin/dashboard")
+        router.refresh() // Force a refresh to ensure the redirect works
       } else {
         // Regular driver - redirect to normal dashboard
+        console.log("Driver user detected, redirecting to normal dashboard")
         router.push("/dashboard")
       }
     } catch (error) {
