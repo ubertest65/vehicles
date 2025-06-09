@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import DashboardHeader from "@/components/dashboard-header"
 import VehicleEntryForm from "@/components/vehicle-entry-form"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,7 @@ export default function Dashboard() {
   const [vehicles, setVehicles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     // Check for user session
