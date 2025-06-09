@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,7 @@ export default function LoginForm() {
   const [savedCredentials, setSavedCredentials] = useState<any>(null)
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     // Check if biometric authentication is available
