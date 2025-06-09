@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import DashboardHeader from "@/components/dashboard-header"
 import VehicleEntryForm from "@/components/vehicle-entry-form"
-import AdminRedirect from "@/components/admin-redirect"
 import { Button } from "@/components/ui/button"
 import { History } from "lucide-react"
 
@@ -30,16 +29,16 @@ export default function Dashboard() {
         const userData = JSON.parse(userSession)
         console.log("User session found:", userData)
 
-        // Redirect admin users to admin dashboard IMMEDIATELY
+        // Redirect admin users to admin dashboard
         if (userData.role_id === 1) {
           console.log("Admin user detected, redirecting to admin dashboard")
-          router.replace("/admin/dashboard")
+          router.push("/admin/dashboard")
           return
         }
 
         setUser(userData)
 
-        // Fetch vehicles only for non-admin users
+        // Fetch vehicles
         const { data: vehiclesData } = await supabase
           .from("vehicles")
           .select("id, license_plate, model")
@@ -59,7 +58,6 @@ export default function Dashboard() {
     checkSession()
   }, [router, supabase])
 
-  // Early return for loading state
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -68,39 +66,29 @@ export default function Dashboard() {
     )
   }
 
-  // Early return if no user
   if (!user) {
     return null
   }
 
-  // Double-check: if somehow an admin user gets here, redirect them
-  if (user.role_id === 1) {
-    router.replace("/admin/dashboard")
-    return null
-  }
-
   return (
-    <>
-      <AdminRedirect />
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <DashboardHeader username={user.username} isAdmin={false} />
-        <div className="container mx-auto py-8 px-4 max-w-2xl">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold">Vehicle Condition Tracker</h1>
-            <Button variant="outline" onClick={() => router.push("/history")} className="flex items-center gap-2">
-              <History className="h-4 w-4" />
-              View History
-            </Button>
-          </div>
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <DashboardHeader username={user.username} isAdmin={false} />
+      <div className="container mx-auto py-8 px-4 max-w-2xl">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Vehicle Condition Tracker</h1>
+          <Button variant="outline" onClick={() => router.push("/history")} className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            View History
+          </Button>
+        </div>
 
-          <div className="space-y-8">
-            <div>
-              <h2 className="text-2xl font-semibold mb-4">New Vehicle Entry</h2>
-              <VehicleEntryForm userId={user.id} vehicles={vehicles} />
-            </div>
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-2xl font-semibold mb-4">New Vehicle Entry</h2>
+            <VehicleEntryForm userId={user.id} vehicles={vehicles} />
           </div>
         </div>
-      </main>
-    </>
+      </div>
+    </main>
   )
 }
