@@ -31,9 +31,9 @@ export default function Dashboard() {
         console.log("User session found:", userData)
 
         // Redirect admin users to admin dashboard IMMEDIATELY
-        if (userData.username === "admin") {
+        if (userData.role_id === 1) {
           console.log("Admin user detected, redirecting to admin dashboard")
-          window.location.href = "/admin/dashboard" // Force hard redirect
+          router.replace("/admin/dashboard")
           return
         }
 
@@ -74,8 +74,8 @@ export default function Dashboard() {
   }
 
   // Double-check: if somehow an admin user gets here, redirect them
-  if (user.username === "admin") {
-    window.location.href = "/admin/dashboard"
+  if (user.role_id === 1) {
+    router.replace("/admin/dashboard")
     return null
   }
 
@@ -83,7 +83,7 @@ export default function Dashboard() {
     <>
       <AdminRedirect />
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <DashboardHeader username={user.username} isAdmin={user.username === "admin"} />
+        <DashboardHeader username={user.username} isAdmin={false} />
         <div className="container mx-auto py-8 px-4 max-w-2xl">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold">Vehicle Condition Tracker</h1>
