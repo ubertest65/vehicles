@@ -29,16 +29,16 @@ export default function Dashboard() {
         const userData = JSON.parse(userSession)
         console.log("User session found:", userData)
 
-        // Redirect admin users to admin dashboard
+        // Redirect admin users to admin dashboard IMMEDIATELY
         if (userData.role_id === 1) {
           console.log("Admin user detected, redirecting to admin dashboard")
-          router.push("/admin/dashboard")
+          router.replace("/admin/dashboard") // Use replace instead of push
           return
         }
 
         setUser(userData)
 
-        // Fetch vehicles
+        // Fetch vehicles only for non-admin users
         const { data: vehiclesData } = await supabase
           .from("vehicles")
           .select("id, license_plate, model")
@@ -58,12 +58,24 @@ export default function Dashboard() {
     checkSession()
   }, [router, supabase])
 
+  // Add an additional check to prevent rendering for admin users
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <p>Loading dashboard...</p>
       </div>
     )
+  }
+
+  // Check if user is admin and redirect if so
+  const userSession = localStorage.getItem("user_session")
+  if (userSession) {
+    const userData = JSON.parse(userSession)
+    if (userData.role_id === 1) {
+      // Don't render anything for admin users, just redirect
+      router.replace("/admin/dashboard")
+      return null
+    }
   }
 
   if (!user) {
