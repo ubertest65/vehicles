@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createClient } from "@/lib/supabase"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -55,7 +55,7 @@ export default function AdminEntriesTable({ filters }: AdminEntriesTableProps) {
   const [itemsPerPage, setItemsPerPage] = useState(20)
   const [totalEntries, setTotalEntries] = useState(0)
 
-  const supabase = createClient()
+  const supabase = createClientComponentClient()
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString)
