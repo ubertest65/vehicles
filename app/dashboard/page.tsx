@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import DashboardHeader from "@/components/dashboard-header"
 import VehicleEntryForm from "@/components/vehicle-entry-form"
+import AdminRedirect from "@/components/admin-redirect"
 import { Button } from "@/components/ui/button"
 import { History } from "lucide-react"
 
@@ -32,7 +33,7 @@ export default function Dashboard() {
         // Redirect admin users to admin dashboard IMMEDIATELY
         if (userData.role_id === 1) {
           console.log("Admin user detected, redirecting to admin dashboard")
-          router.replace("/admin/dashboard") // Use replace instead of push
+          router.replace("/admin/dashboard")
           return
         }
 
@@ -58,7 +59,7 @@ export default function Dashboard() {
     checkSession()
   }, [router, supabase])
 
-  // Add an additional check to prevent rendering for admin users
+  // Early return for loading state
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -67,40 +68,39 @@ export default function Dashboard() {
     )
   }
 
-  // Check if user is admin and redirect if so
-  const userSession = localStorage.getItem("user_session")
-  if (userSession) {
-    const userData = JSON.parse(userSession)
-    if (userData.role_id === 1) {
-      // Don't render anything for admin users, just redirect
-      router.replace("/admin/dashboard")
-      return null
-    }
-  }
-
+  // Early return if no user
   if (!user) {
     return null
   }
 
-  return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <DashboardHeader username={user.username} isAdmin={false} />
-      <div className="container mx-auto py-8 px-4 max-w-2xl">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Vehicle Condition Tracker</h1>
-          <Button variant="outline" onClick={() => router.push("/history")} className="flex items-center gap-2">
-            <History className="h-4 w-4" />
-            View History
-          </Button>
-        </div>
+  // Double-check: if somehow an admin user gets here, redirect them
+  if (user.role_id === 1) {
+    router.replace("/admin/dashboard")
+    return null
+  }
 
-        <div className="space-y-8">
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">New Vehicle Entry</h2>
-            <VehicleEntryForm userId={user.id} vehicles={vehicles} />
+  return (
+    <>
+      <AdminRedirect />
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <DashboardHeader username={user.username} isAdmin={false} />
+        <div className="container mx-auto py-8 px-4 max-w-2xl">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-bold">Vehicle Condition Tracker</h1>
+            <Button variant="outline" onClick={() => router.push("/history")} className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              View History
+            </Button>
+          </div>
+
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-2xl font-semibold mb-4">New Vehicle Entry</h2>
+              <VehicleEntryForm userId={user.id} vehicles={vehicles} />
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   )
 }
