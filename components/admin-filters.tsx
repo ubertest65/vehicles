@@ -1,7 +1,6 @@
 "use client"
 
 import { CommandEmpty } from "@/components/ui/command"
-
 import { useState, useEffect } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Card, CardContent } from "@/components/ui/card"
