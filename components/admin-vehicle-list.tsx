@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,7 +33,7 @@ export default function AdminVehicleList() {
   const [submitting, setSubmitting] = useState(false)
 
   const { toast } = useToast()
-  const supabase = createClient()
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchVehicles()
